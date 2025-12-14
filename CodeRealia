@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8" />
+  <title>Realia — Base de dades</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 1.5rem;
+      background: #f5f5f7;
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 0.25rem;
+    }
+    .subtitle {
+      color: #555;
+      margin-bottom: 1.5rem;
+      max-width: 60rem;
+    }
+    .controls {
+      margin-bottom: 1rem;
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    input[type="text"] {
+      padding: 0.4rem 0.6rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      flex: 1 1 200px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    th, td {
+      border-bottom: 1px solid #eee;
+      padding: 0.4rem 0.6rem;
+      font-size: 0.85rem;
+      vertical-align: top;
+    }
+    th {
+      background: #f0f0f4;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tr:nth-child(even) td {
+      background: #fafafa;
+    }
+    .tag {
+      display: inline-block;
+      padding: 0.15rem 0.4rem;
+      font-size: 0.7rem;
+      border-radius: 999px;
+      background: #e0e7ff;
+    }
+    .small {
+      font-size: 0.78rem;
+      color: #666;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Realia — Base de dades d’edicions i inscripcions</h1>
+  <p class="subtitle">
+    Consulta dels registres del projecte <strong>Realia</strong>: autors antics, editors humanistes,
+    obres, inscripcions citades, referències modernes i funció filològica dels <em>realia</em>.
+  </p>
+
+  <div class="controls">
+    <label for="search"><strong>Cerca global:</strong></label>
+    <input id="search" type="text" placeholder="Cerca per autor, editor, obra, inscripció, lloc…" />
+    <span class="small">El fitxer ha de ser <code>realia_clean.csv</code> al mateix directori.</span>
+  </div>
+
+  <div style="overflow-x:auto; max-height: 75vh;">
+    <table id="table">
+      <thead>
+        <tr>
+          <th>Autor antic</th>
+          <th>Editor humanista</th>
+          <th>Obra (edició, any)</th>
+          <th>Inscripció citada</th>
+          <th>Referència moderna</th>
+          <th>Tipus de realia</th>
+          <th>Lloc / procedència</th>
+          <th>Funció dins el comentari</th>
+          <th>Lectura / variant</th>
+          <th>Observacions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Es generarà amb JavaScript -->
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    const CSV_FILE = "realia_clean.csv"; // ha d’estar a docs/ o a la mateixa carpeta que aquest HTML
+
+    async function fetchCSV() {
+      const res = await fetch(CSV_FILE);
+      if (!res.ok) {
+        console.error("No s’ha pogut carregar el CSV:", res.status);
+        return [];
+      }
+      const text = await res.text();
+      return parseCSV(text);
+    }
+
+    // Parser CSV mínim (assumeix comes simples i sense cometes complicades)
+    function parseCSV(text) {
+      const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
+      if (!lines.length) return [];
+      const headers = lines[0].split(",").map(h => h.trim());
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(","); // prou per al nostre cas simple
+        const obj = {};
+        headers.forEach((h, idx) => {
+          obj[h] = (cols[idx] || "").trim();
+        });
+        rows.push(obj);
+      }
+      return rows;
+    }
+
+    function renderTable(rows) {
+      const tbody = document.querySelector("#table tbody");
+      tbody.innerHTML = "";
+      rows.forEach(row => {
+        const tr = document.createElement("tr");
+        function cell(key, isTag) {
+          const td = document.createElement("td");
+          const value = row[key] || "";
+          if (isTag && value) {
+            const span = document.createElement("span");
+            span.className = "tag";
+            span.textContent = value;
+            td.appendChild(span);
+          } else {
+            td.textContent = value;
+          }
+          tr.appendChild(td);
+        }
+        cell("Autor antic");
+        cell("Editor humanista");
+        cell("Obra (edició, any)");
+        cell("Inscripció citada");
+        cell("Referència moderna");
+        cell("Tipus de realia", true);
+        cell("Lloc/procedència");
+        cell("Funció dins el comentari");
+        cell("Lectura / variant");
+        cell("Observacions");
+        tbody.appendChild(tr);
+      });
+    }
+
+    (async function init() {
+      const data = await fetchCSV();
+      let current = data.slice();
+      renderTable(current);
+
+      const input = document.getElementById("search");
+      input.addEventListener("input", () => {
+        const q = input.value.toLowerCase().trim();
+        if (!q) {
+          current = data.slice();
+        } else {
+          current = data.filter(row =>
+            Object.values(row).some(v =>
+              v && v.toLowerCase().includes(q)
+            )
+          );
+        }
+        renderTable(current);
+      });
+    })();
+  </script>
+</body>
+</html>
